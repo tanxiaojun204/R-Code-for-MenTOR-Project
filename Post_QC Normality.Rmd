@@ -1,0 +1,1512 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# Filter data for MIP-1α
+MIP1a_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `MIP-1α`) %>% # Use backticks for the column name
+  rename(Value = `MIP-1α`) # Rename column for consistency
+
+# Remove missing values
+MIP1a_Data <- MIP1a_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for MIP-1α
+ggplot(MIP1a_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of MIP-1α Concentrations",
+    x = "MIP-1α Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(MIP1a_Data$Value)
+print(shapiro_test)
+
+
+```
+
+```{r}
+# Filter data for MCP-4
+MCP4_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `MCP-4`) %>% # Use backticks for column name
+  rename(Value = `MCP-4`) # Rename column for consistency
+
+# Remove missing values
+MCP4_Data <- MCP4_Data %>% filter(!is.na(Value))
+
+# Remove the specific outlier (MEN2024)
+MCP4_Data_Cleaned <- MCP4_Data %>%
+  filter(Sample != "MEN2024") # Exclude the outlier sample
+
+# Plot Histogram for MCP-4 after removing the outlier
+ggplot(MCP4_Data_Cleaned, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of MCP-4 Concentrations (Outlier Removed)",
+    x = "MCP-4 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(MCP4_Data_Cleaned$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for MIP-1β
+MIP1b_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `MIP-1β`) %>% # Use backticks to handle the special character
+  rename(Value = `MIP-1β`) # Rename column for consistency
+
+# Remove missing values
+MIP1b_Data <- MIP1b_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for MIP-1β
+ggplot(MIP1b_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of MIP-1β Concentrations",
+    x = "MIP-1β Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(MIP1b_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IP-10
+IP10_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IP-10`) %>% # Use backticks for column name
+  rename(Value = `IP-10`) # Rename column for consistency
+
+# Remove missing values
+IP10_Data <- IP10_Data %>% filter(!is.na(Value))
+
+# Remove the specific outlier (MEN2205)
+IP10_Data_Cleaned <- IP10_Data %>%
+  filter(Sample != "MEN2205") # Exclude the outlier sample
+
+# Plot Histogram for IP-10 after removing the outlier
+ggplot(IP10_Data_Cleaned, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IP-10 Concentrations (Outlier Removed)",
+    x = "IP-10 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(IP10_Data_Cleaned$Value)
+print(shapiro_test)
+
+
+```
+
+```{r}
+# Filter data for Eotaxin
+Eotaxin_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, Eotaxin) %>% # Select the Eotaxin column
+  rename(Value = Eotaxin) # Rename column for consistency
+
+# Remove missing values
+Eotaxin_Data <- Eotaxin_Data %>% filter(!is.na(Value))
+
+# Remove the specific outliers (MEN2024 and MEN2046)
+Eotaxin_Data_Cleaned <- Eotaxin_Data %>%
+  filter(Sample != "MEN2024" & Sample != "MEN2046") # Exclude the outlier samples
+
+# Plot Histogram for Eotaxin after removing the outliers
+ggplot(Eotaxin_Data_Cleaned, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of Eotaxin Concentrations (Outliers Removed)",
+    x = "Eotaxin Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(Eotaxin_Data_Cleaned$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-12/IL-23p40
+IL12_23p40_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-12/IL-23p40`) %>% # Use backticks for column name with special characters
+  rename(Value = `IL-12/IL-23p40`) # Rename column for consistency
+
+# Remove missing values
+IL12_23p40_Data <- IL12_23p40_Data %>% filter(!is.na(Value))
+
+# Remove the specific outlier (MEN2026)
+IL12_23p40_Data_Cleaned <- IL12_23p40_Data %>%
+  filter(Sample != "MEN2026") # Exclude the outlier sample
+
+# Plot Histogram for IL-12/IL-23p40 after removing the outlier
+ggplot(IL12_23p40_Data_Cleaned, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-12/IL-23p40 Concentrations (Outlier Removed)",
+    x = "IL-12/IL-23p40 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(IL12_23p40_Data_Cleaned$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-15
+IL15_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-15`) %>% # Use backticks for column name
+  rename(Value = `IL-15`) # Rename column for consistency
+
+# Remove missing values
+IL15_Data <- IL15_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for IL-15
+ggplot(IL15_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-15 Concentrations",
+    x = "IL-15 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(IL15_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for TNF-β
+TNFb_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `TNF-β`) %>% # Use backticks for column name with special characters
+  rename(Value = `TNF-β`) # Rename column for consistency
+
+# Remove missing values
+TNFb_Data <- TNFb_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for TNF-β
+ggplot(TNFb_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of TNF-β Concentrations",
+    x = "TNF-β Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(TNFb_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for TNF-β
+TNFb_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `TNF-β`) %>% # Use backticks for column name with special characters
+  rename(Value = `TNF-β`) # Rename column for consistency
+
+# Remove missing values
+TNFb_Data <- TNFb_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for TNF-β
+ggplot(TNFb_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of TNF-β Concentrations",
+    x = "TNF-β Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(TNFb_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-16
+IL16_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-16`) %>% # Use backticks for column name
+  rename(Value = `IL-16`) # Rename column for consistency
+
+# Remove missing values
+IL16_Data <- IL16_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for IL-16
+ggplot(IL16_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-16 Concentrations",
+    x = "IL-16 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(IL16_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-7
+IL7_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-7`) %>% # Use backticks for column name
+  rename(Value = `IL-7`) # Rename column for consistency
+
+# Remove missing values
+IL7_Data <- IL7_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for IL-7
+ggplot(IL7_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-7 Concentrations",
+    x = "IL-7 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(IL7_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for GM-CSF
+GMCSF_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `GM-CSF`) %>% # Use backticks for column name
+  rename(Value = `GM-CSF`) # Rename column for consistency
+
+# Remove missing values
+GMCSF_Data <- GMCSF_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for GM-CSF
+ggplot(GMCSF_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of GM-CSF Concentrations",
+    x = "GM-CSF Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(GMCSF_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-17A
+IL17A_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-17A`) %>% # Use backticks for column name
+  rename(Value = `IL-17A`) # Rename column for consistency
+
+# Remove missing values
+IL17A_Data <- IL17A_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for IL-17A
+ggplot(IL17A_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-17A Concentrations",
+    x = "IL-17A Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(IL17A_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-8
+IL8_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-8`) %>% # Use backticks for column name
+  rename(Value = `IL-8`) # Rename column for consistency
+
+# Remove missing values
+IL8_Data <- IL8_Data %>% filter(!is.na(Value))
+
+# Plot Histogram for IL-8
+ggplot(IL8_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-8 Concentrations",
+    x = "IL-8 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(IL8_Data$Value)
+print(shapiro_test)
+
+```
+
+```{r}
+# Filter data for IL-6
+IL6_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IL-6`) %>% # Use backticks for column name
+  rename(Value = `IL-6`) # Rename column for consistency
+
+# Remove missing values
+IL6_Data <- IL6_Data %>% filter(!is.na(Value))
+
+# Remove the specific outlier (MEN2043)
+IL6_Data_Cleaned <- IL6_Data %>%
+  filter(Sample != "MEN2043") # Exclude the outlier sample
+
+# Plot Histogram for IL-6 after removing the outlier
+ggplot(IL6_Data_Cleaned, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-6 Concentrations (Outlier Removed)",
+    x = "IL-6 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(IL6_Data_Cleaned$Value)
+print(shapiro_test)
+
+
+```
+
+```{r}
+# Filter data for IFN-γ
+IFNg_Data <- Post_QC_Wide %>%
+  dplyr::select(Sample, `IFN-γ`) %>% # Use backticks for column name with special characters
+  rename(Value = `IFN-γ`) # Rename column for consistency
+
+# Remove missing values
+IFNg_Data <- IFNg_Data %>% filter(!is.na(Value))
+
+# Remove the specific outlier (MEN2097)
+IFNg_Data_Cleaned <- IFNg_Data %>%
+  filter(Sample != "MEN2097") # Exclude the outlier sample
+
+# Plot Histogram for IFN-γ after removing the outlier
+ggplot(IFNg_Data_Cleaned, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IFN-γ Concentrations (Outlier Removed)",
+    x = "IFN-γ Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality on cleaned data
+shapiro_test <- shapiro.test(IFNg_Data_Cleaned$Value)
+print(shapiro_test)
+
+
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+analytes <- c("MCP-1", "MDC", "MIP-1α", "MCP-4", "MIP-1β", "IP-10", "Eotaxin",
+              "IL-12/IL-23p40", "IL-15", "IL-1α", "IL-5", "TNF-β", "IL-16", "IL-7",
+              "GM-CSF", "IL-17A", "IL-8", "IL-6", "IFN-γ")
+
+# Step 1: Remove groupings and select columns
+Post_QC_Numeric <- Post_QC_Wide %>%
+  ungroup() %>%  # Critical: Remove hidden groupings
+  dplyr::select(Sample, all_of(analytes)) %>%  # Explicitly include desired columns
+  mutate(across(all_of(analytes), as.numeric))
+
+# Step 2: Pivot and process
+Analyte_Data <- Post_QC_Numeric %>%
+  pivot_longer(
+    cols = -Sample,
+    names_to = "Analyte",
+    values_to = "Concentration"
+  ) %>%
+  mutate(
+    Group = ifelse(grepl("MEN", Sample), "Mentor", "Comparator")
+  ) %>%
+  filter(!is.na(Concentration))
+
+# Step 3: Summarize results
+Mentor_Analyte_Summary <- Analyte_Data %>%
+  group_by(Analyte, Group) %>%
+  summarise(
+    Median = median(Concentration, na.rm = TRUE),
+    IQR = IQR(Concentration, na.rm = TRUE),
+    .groups = "drop"  # Avoid retaining groupings post-summary
+  ) %>%
+  pivot_wider(
+    names_from = Group,
+    values_from = c(Median, IQR)
+  )
+
+print(Mentor_Analyte_Summary)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Updated list of analytes based on new dataset
+analytes <- c("IL-6", "IL-8", "TNF-α", "MCP-1", "IL-1b", "Tenascin C", "Activin A", "LTBP2", "MMP-3")
+
+# Check column names (run separately to identify correct column for sample IDs)
+colnames(SF_single)
+
+# Identify the correct column for sample IDs (replace `Sample ID` if necessary)
+SF_HC_Numeric <- SF_single %>%
+  filter(Subgroup == "hc") %>%  # Select only "hc" subgroup
+  dplyr::select(`Sample ID`, all_of(analytes)) %>%  # Use correct column for sample ID
+  mutate(across(all_of(analytes), ~as.numeric(gsub("<", "", .))))  # Convert to numeric, handling "<" values
+
+# Step 2: Pivot dataset from wide to long format
+SF_HC_Analyte_Data <- SF_HC_Numeric %>%
+  pivot_longer(
+    cols = -`Sample ID`,
+    names_to = "Analyte",
+    values_to = "Concentration"
+  ) %>%
+  filter(!is.na(Concentration))  # Remove missing values
+
+# Step 3: Compute median and IQR for each analyte
+SF_HC_Analyte_Summary <- SF_HC_Analyte_Data %>%
+  group_by(Analyte) %>%
+  summarise(
+    Median = median(Concentration, na.rm = TRUE),
+    IQR = IQR(Concentration, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the summary table
+print(SF_HC_Analyte_Summary)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Updated list of analytes based on new dataset
+analytes <- c("IL-6", "IL-8", "TNF-α", "MCP-1", "IL-1b", "Tenascin C", "Activin A", "LTBP2", "MMP-3")
+
+# Step 1: Filter for "ia" subgroup and select relevant columns
+SF_IA_Numeric <- SF_single %>%
+  filter(Subgroup == "ia") %>%  # Select only "ia" subgroup
+  dplyr::select(`Sample ID`, all_of(analytes)) %>%  # Select only relevant analytes
+  mutate(across(all_of(analytes), ~as.numeric(gsub("<", "", .))))  # Convert to numeric, handling "<" values
+
+# Step 2: Pivot dataset from wide to long format
+SF_IA_Analyte_Data <- SF_IA_Numeric %>%
+  pivot_longer(
+    cols = -`Sample ID`,
+    names_to = "Analyte",
+    values_to = "Concentration"
+  ) %>%
+  filter(!is.na(Concentration))  # Remove missing values
+
+# Step 3: Compute median and IQR for each analyte
+SF_IA_Analyte_Summary <- SF_IA_Analyte_Data %>%
+  group_by(Analyte) %>%
+  summarise(
+    Median = median(Concentration, na.rm = TRUE),
+    IQR = IQR(Concentration, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the summary table
+print(SF_IA_Analyte_Summary)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Updated list of analytes based on new dataset
+analytes <- c("IL-6", "IL-8", "TNF-α", "MCP-1", "IL-1b", "Tenascin C", "Activin A", "LTBP2", "MMP-3")
+
+# Step 1: Filter for "late" subgroup and select relevant columns
+SF_Late_Numeric <- SF_single %>%
+  filter(Subgroup == "late") %>%  # Select only "late" subgroup
+  dplyr::select(`Sample ID`, all_of(analytes)) %>%  # Select only relevant analytes
+  mutate(across(all_of(analytes), ~as.numeric(gsub("<", "", .))))  # Convert to numeric, handling "<" values
+
+# Step 2: Pivot dataset from wide to long format
+SF_Late_Analyte_Data <- SF_Late_Numeric %>%
+  pivot_longer(
+    cols = -`Sample ID`,
+    names_to = "Analyte",
+    values_to = "Concentration"
+  ) %>%
+  filter(!is.na(Concentration))  # Remove missing values
+
+# Step 3: Compute median and IQR for each analyte
+SF_Late_Analyte_Summary <- SF_Late_Analyte_Data %>%
+  group_by(Analyte) %>%
+  summarise(
+    Median = median(Concentration, na.rm = TRUE),
+    IQR = IQR(Concentration, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the summary table
+print(SF_Late_Analyte_Summary)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Updated list of analytes based on new dataset
+analytes <- c("IL-6", "IL-8", "TNF-α", "MCP-1", "IL-1b", "Tenascin C", "Activin A", "LTBP2", "MMP-3")
+
+# Step 1: Filter for "mid" subgroup and select relevant columns
+SF_Mid_Numeric <- SF_single %>%
+  filter(Subgroup == "mid") %>%  # Select only "mid" subgroup
+  dplyr::select(`Sample ID`, all_of(analytes)) %>%  # Select only relevant analytes
+  mutate(across(all_of(analytes), ~as.numeric(gsub("<", "", .))))  # Convert to numeric, handling "<" values
+
+# Step 2: Pivot dataset from wide to long format
+SF_Mid_Analyte_Data <- SF_Mid_Numeric %>%
+  pivot_longer(
+    cols = -`Sample ID`,
+    names_to = "Analyte",
+    values_to = "Concentration"
+  ) %>%
+  filter(!is.na(Concentration))  # Remove missing values
+
+# Step 3: Compute median and IQR for each analyte
+SF_Mid_Analyte_Summary <- SF_Mid_Analyte_Data %>%
+  group_by(Analyte) %>%
+  summarise(
+    Median = median(Concentration, na.rm = TRUE),
+    IQR = IQR(Concentration, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the summary table
+print(SF_Mid_Analyte_Summary)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Updated list of analytes based on new dataset
+analytes <- c("IL-6", "IL-8", "TNF-α", "MCP-1", "IL-1b", "Tenascin C", "Activin A", "LTBP2", "MMP-3")
+
+# Step 1: Filter for "oa" subgroup and select relevant columns
+SF_OA_Numeric <- SF_single %>%
+  filter(Subgroup == "oa") %>%  # Select only "oa" subgroup
+  dplyr::select(`Sample ID`, all_of(analytes)) %>%  # Select only relevant analytes
+  mutate(across(all_of(analytes), ~as.numeric(gsub("<", "", .))))  # Convert to numeric, handling "<" values
+
+# Step 2: Pivot dataset from wide to long format
+SF_OA_Analyte_Data <- SF_OA_Numeric %>%
+  pivot_longer(
+    cols = -`Sample ID`,
+    names_to = "Analyte",
+    values_to = "Concentration"
+  ) %>%
+  filter(!is.na(Concentration))  # Remove missing values
+
+# Step 3: Compute median and IQR for each analyte
+SF_OA_Analyte_Summary <- SF_OA_Analyte_Data %>%
+  group_by(Analyte) %>%
+  summarise(
+    Median = median(Concentration, na.rm = TRUE),
+    IQR = IQR(Concentration, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the summary table
+print(SF_OA_Analyte_Summary)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+
+# Updated list of analytes based on the new dataset
+analytes <- c("IL-6", "IL-8", "TNF-α", "MCP-1", "IL-1b", "Tenascin C", "Activin A", "LTBP2", "MMP-3")
+
+# List of subgroups
+subgroups <- c("hc", "ia", "late", "mid", "oa", "unclassified knee oa")
+
+# Function to process each subgroup
+process_subgroup <- function(subgroup_name) {
+  SF_single %>%
+    filter(Subgroup == subgroup_name) %>%
+    dplyr::select(`Sample ID`, all_of(analytes)) %>%
+    mutate(across(all_of(analytes), ~as.numeric(gsub("<", "", .)))) %>%
+    pivot_longer(
+      cols = -`Sample ID`,
+      names_to = "Analyte",
+      values_to = "Concentration"
+    ) %>%
+    filter(!is.na(Concentration)) %>%
+    group_by(Analyte) %>%
+    summarise(
+      Subgroup = subgroup_name,
+      Median = median(Concentration, na.rm = TRUE),
+      IQR = IQR(Concentration, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
+# Apply function to all subgroups and combine into one table
+SF_Combined_Analyte_Summary <- bind_rows(lapply(subgroups, process_subgroup))
+
+# Convert to wide format
+SF_Combined_Wide <- SF_Combined_Analyte_Summary %>%
+  pivot_wider(names_from = Subgroup, values_from = c(Median, IQR))
+
+# View the final organized table
+print(SF_Combined_Wide)
+
+```
+
+```{r}
+# Load required library
+library(dplyr)
+
+# Identify correct column name for "Cal. Conc. Mean"
+cal_conc_col <- grep("Cal.*Conc.*Mean", colnames(SF_36), value = TRUE)
+
+# Extract required data where 'Sample' contains both "SF" and "OMB"
+SF_36_Filtered <- SF_36 %>%
+  filter(grepl("SF", Sample) & grepl("OMB", Sample)) %>%  # Filter for "SF" and "OMB"
+  dplyr::select(Assay, Sample, all_of(cal_conc_col))  # Select relevant columns
+
+# View the extracted table
+View(SF_36_Filtered)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Identify correct column name for "Cal. Conc. Mean"
+cal_conc_col <- grep("Cal.*Conc.*Mean", colnames(SF_36_Filtered), value = TRUE)
+
+# Compute median and IQR for each analyte
+SF_36_Summary <- SF_36_Filtered %>%
+  group_by(Assay) %>%
+  summarise(
+    Median = median(.data[[cal_conc_col]], na.rm = TRUE),
+    IQR = IQR(.data[[cal_conc_col]], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Print the summary table
+print(SF_36_Summary)
+
+```
+
+```{r}
+install.packages("gridExtra")
+library(gridExtra)
+library(grid)
+
+# Save as PNG
+png("/Users/xiaojun/Desktop/Protein_Summary.png", width = 1200, height = 800)
+grid.table(Protein_Summary)
+dev.off()
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(gridExtra)
+library(grid)
+
+# Round numeric columns to 1 decimal place
+SF_Combined_Wide_Formatted <- SF_Combined_Wide %>%
+  mutate(across(where(is.numeric), ~ round(.x, 1)))
+
+# Save table as an image (PNG)
+png("/Users/xiaojun/Desktop/SF_Combined_Wide.png", width = 1200, height = 600)
+grid.table(SF_Combined_Wide_Formatted)
+dev.off()
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Check summary of original dataset
+summary(Post_QC_Wide)
+
+# Function to check normality with visualization (without log transformation)
+check_normality <- function(data, column) {
+  par(mfrow = c(1, 2))  # Set up plot layout
+  
+  # Histogram
+  hist(data[[column]], main = paste("Histogram of", column), xlab = column, col = "skyblue", border = "black")
+  
+  # QQ plot
+  qqnorm(data[[column]], main = paste("QQ Plot of", column))
+  qqline(data[[column]], col = "red")
+  
+  # Shapiro-Wilk test
+  shapiro_result <- shapiro.test(data[[column]])
+  return(shapiro_result$p.value)
+}
+
+# Select key analytes for normality check
+analytes <- c("MCP-1", "IL-6", "IL-8")  # Add more if needed
+
+# Check normality for selected analytes in the original dataset
+normality_results <- sapply(analytes, function(analyte) check_normality(Post_QC_Wide, analyte))
+
+# Print Shapiro-Wilk p-values
+print(normality_results)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Check original summary before transformation
+summary(Post_QC_Wide)
+
+# Apply log1p transformation again
+Post_QC_Wide_Log <- Post_QC_Wide %>%
+  mutate(across(where(is.numeric), log1p))  # log1p(x) = log(1 + x)
+
+# Check summary statistics after transformation
+summary(Post_QC_Wide_Log)
+
+# Save transformed dataset
+write.csv(Post_QC_Wide_Log, file = "/Users/xiaojun/Desktop/Post_QC_Wide_Log_Verified.csv", row.names = FALSE)
+
+# Function to check normality with visualization
+check_normality <- function(data, column) {
+  par(mfrow = c(1, 2))  # Set up plot layout
+  
+  # Histogram
+  hist(data[[column]], main = paste("Histogram of", column), xlab = column, col = "skyblue", border = "black")
+  
+  # QQ plot
+  qqnorm(data[[column]], main = paste("QQ Plot of", column))
+  qqline(data[[column]], col = "red")
+  
+  # Shapiro-Wilk test
+  shapiro_result <- shapiro.test(data[[column]])
+  return(shapiro_result$p.value)
+}
+
+# Select key analytes for normality check
+analytes <- c("MCP-1", "IL-6", "IL-8")  # Add more if needed
+
+# Re-check normality for selected analytes
+normality_results <- sapply(analytes, function(analyte) check_normality(Post_QC_Wide_Log, analyte))
+
+# Print new Shapiro-Wilk p-values
+print(normality_results)
+
+```
+
+```{r}
+library(MASS)  # For Box-Cox transformation
+
+# Ensure IL-6 has only positive values (Box-Cox requires x > 0)
+IL6_Positive <- Post_QC_Wide$`IL-6`[Post_QC_Wide$`IL-6` > 0]
+
+# Perform Box-Cox transformation to find optimal lambda
+bc <- boxcox(lm(IL6_Positive ~ 1), lambda = seq(-2, 2, 0.1))
+lambda_opt <- bc$x[which.max(bc$y)]  # Extract optimal lambda
+print(paste("Optimal Lambda for IL-6:", lambda_opt))
+
+# Apply the optimal Box-Cox transformation
+Post_QC_Wide$IL6_BoxCox <- ifelse(Post_QC_Wide$`IL-6` > 0, 
+                                  (Post_QC_Wide$`IL-6`^lambda_opt - 1) / lambda_opt, 
+                                  NA)  # Avoid negative/zero values
+# Function to check normality
+check_normality <- function(data, column) {
+  par(mfrow = c(1, 2))  # Set up plot layout
+  
+  # Histogram
+  hist(data[[column]], main = paste("Histogram of", column), xlab = column, col = "skyblue", border = "black")
+  
+  # QQ plot
+  qqnorm(data[[column]], main = paste("QQ Plot of", column))
+  qqline(data[[column]], col = "red")
+  
+  # Shapiro-Wilk test
+  shapiro_result <- shapiro.test(data[[column]])
+  return(shapiro_result$p.value)
+}
+
+# Check normality for IL-6 after Box-Cox transformation
+il6_normality <- check_normality(Post_QC_Wide, "IL6_BoxCox")
+print(paste("Shapiro-Wilk p-value for IL-6 after Box-Cox:", il6_normality))
+
+```
+
+```{r}
+library(MASS)  # For Box-Cox transformation
+
+# Ensure IL-8 has only positive values (Box-Cox requires x > 0)
+IL8_Positive <- Post_QC_Wide$`IL-8`[Post_QC_Wide$`IL-8` > 0]
+
+# Perform Box-Cox transformation to find optimal lambda
+bc <- boxcox(lm(IL8_Positive ~ 1), lambda = seq(-2, 2, 0.1))
+lambda_opt <- bc$x[which.max(bc$y)]  # Extract optimal lambda
+print(paste("Optimal Lambda for IL-8:", lambda_opt))
+
+# Apply the optimal Box-Cox transformation
+Post_QC_Wide$IL8_BoxCox <- ifelse(Post_QC_Wide$`IL-8` > 0, 
+                                  (Post_QC_Wide$`IL-8`^lambda_opt - 1) / lambda_opt, 
+                                  NA)  # Avoid negative/zero values
+
+# Function to check normality
+check_normality <- function(data, column) {
+  par(mfrow = c(1, 2))  # Set up plot layout
+  
+  # Histogram
+  hist(data[[column]], main = paste("Histogram of", column), xlab = column, col = "skyblue", border = "black")
+  
+  # QQ plot
+  qqnorm(data[[column]], main = paste("QQ Plot of", column))
+  qqline(data[[column]], col = "red")
+  
+  # Shapiro-Wilk test
+  shapiro_result <- shapiro.test(data[[column]])
+  return(shapiro_result$p.value)
+}
+
+# Check normality for IL-8 after Box-Cox transformation
+il8_normality <- check_normality(Post_QC_Wide, "IL8_BoxCox")
+print(paste("Shapiro-Wilk p-value for IL-8 after Box-Cox:", il8_normality))
+
+```
+
+```{r}
+library(MASS)  # For Box-Cox transformation
+
+# Ensure MCP-1 has only positive values (Box-Cox requires x > 0)
+MCP1_Positive <- Post_QC_Wide$`MCP-1`[Post_QC_Wide$`MCP-1` > 0]
+
+# Perform Box-Cox transformation to find optimal lambda
+bc <- boxcox(lm(MCP1_Positive ~ 1), lambda = seq(-2, 2, 0.1))
+lambda_opt <- bc$x[which.max(bc$y)]  # Extract optimal lambda
+print(paste("Optimal Lambda for MCP-1:", lambda_opt))
+
+# Apply the optimal Box-Cox transformation
+Post_QC_Wide$MCP1_BoxCox <- ifelse(Post_QC_Wide$`MCP-1` > 0, 
+                                  (Post_QC_Wide$`MCP-1`^lambda_opt - 1) / lambda_opt, 
+                                  NA)  # Avoid negative/zero values
+
+# Function to check normality
+check_normality <- function(data, column) {
+  par(mfrow = c(1, 2))  # Set up plot layout
+  
+  # Histogram
+  hist(data[[column]], main = paste("Histogram of", column), xlab = column, col = "skyblue", border = "black")
+  
+  # QQ plot
+  qqnorm(data[[column]], main = paste("QQ Plot of", column))
+  qqline(data[[column]], col = "red")
+  
+  # Shapiro-Wilk test
+  shapiro_result <- shapiro.test(data[[column]])
+  return(shapiro_result$p.value)
+}
+
+# Check normality for MCP-1 after Box-Cox transformation
+mcp1_normality <- check_normality(Post_QC_Wide, "MCP1_BoxCox")
+print(paste("Shapiro-Wilk p-value for MCP-1 after Box-Cox:", mcp1_normality))
+
+```
+
+```{r}
+library(MASS)  # For Box-Cox transformation
+library(dplyr)  # For data manipulation
+
+# List of assays to transform
+assays <- c("MCP-1", "MDC", "MIP-1α", "MCP-4", "MIP-1β", "IP-10", "Eotaxin",
+            "IL-12/IL-23p40", "IL-15", "IL-1α", "IL-5", "TNF-β", 
+            "IL-16", "IL-7", "GM-CSF", "IL-17A", "IL-8", "IL-6", "IFN-γ")
+
+# Create an empty dataframe for transformed values
+Box_Cox_Mentor <- Post_QC_Wide %>% dplyr::select(Sample)  # Retain only "Sample" column
+
+# Loop through each assay and apply Box-Cox transformation
+for (col in assays) {
+  
+  # Ensure only positive values (Box-Cox requires x > 0)
+  positive_values <- Post_QC_Wide[[col]][Post_QC_Wide[[col]] > 0]
+
+  if (length(positive_values) < 10) {  # Ensure enough values for Box-Cox
+    print(paste("Skipping Box-Cox for", col, "- not enough positive values."))
+    Box_Cox_Mentor[[col]] <- NA  # Assign NA to new column
+    next  # Skip this iteration
+  }
+
+  # Perform Box-Cox transformation to find optimal lambda
+  bc <- boxcox(lm(positive_values ~ 1), lambda = seq(-2, 2, 0.1))
+  lambda_opt <- bc$x[which.max(bc$y)]  # Extract optimal lambda
+  print(paste("Optimal Lambda for", col, ":", lambda_opt))
+
+  # Apply the optimal Box-Cox transformation
+  Box_Cox_Mentor[[col]] <- ifelse(Post_QC_Wide[[col]] > 0, 
+                                  (Post_QC_Wide[[col]]^lambda_opt - 1) / lambda_opt, 
+                                  NA)  # Avoid negative/zero values
+}
+
+# Save the transformed dataset as CSV
+write.csv(Box_Cox_Mentor, file = "Box_Cox_Mentor.csv", row.names = FALSE)
+
+# View the transformed dataset in a new tab
+View(Box_Cox_Mentor)
+
+# Print message
+print("Box-Cox transformation complete. File saved as 'Box_Cox_Mentor.csv'.")
+
+
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(MASS)  # Already loaded
+
+# Rename columns to ensure consistency
+#MENTOR <- MENTOR %>%
+  #rename(Sample = patient_code, Sex = Gender) %>%
+  #mutate(Sex = factor(Sex, levels = c(1, 2), labels = c("Male", "Female")))  # Convert 1/2 to Male/Female#
+
+# Ensure necessary columns exist
+if (!"Age" %in% names(MENTOR)) {
+  stop("Error: 'Age' column is missing in MENTOR! Ensure it was calculated.")
+}
+
+if (!"BMI" %in% names(MENTOR)) {
+  MENTOR <- MENTOR %>% mutate(BMI = Weight / (Height^2))  # Calculate if missing
+}
+
+# Convert Sample to character in both datasets
+MENTOR <- MENTOR %>% mutate(Sample = as.character(Sample))
+Box_Cox_Mentor <- Box_Cox_Mentor %>% mutate(Sample = as.character(Sample))
+
+# Merge datasets by Sample
+merged_data <- MENTOR %>%
+  inner_join(Box_Cox_Mentor, by = "Sample")
+
+# Verify Age exists after merging
+if (!"Age" %in% names(merged_data)) {
+  stop("Error: 'Age' column missing after merging! Check original datasets.")
+}
+
+# List of proteins to analyze
+proteins <- c("MCP-1", "MDC", "MIP-1α", "MCP-4", "MIP-1β", "IP-10", "Eotaxin",
+              "IL-12/IL-23p40", "IL-15", "IL-1α", "IL-5", "TNF-β", 
+              "IL-16", "IL-7", "GM-CSF", "IL-17A", "IL-8", "IL-6", "IFN-γ")
+
+# Scatter plots: BMI vs. each protein
+for (protein in proteins) {
+  p <- ggplot(merged_data, aes(x = BMI, y = .data[[protein]])) +
+    geom_point(alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE, color = "blue") +
+    labs(title = paste("BMI vs", protein), x = "BMI", y = protein) +
+    theme_minimal()
+  print(p)
+}
+
+# Scatter plots: Age vs. each protein
+for (protein in proteins) {
+  p <- ggplot(merged_data, aes(x = Age, y = .data[[protein]])) +
+    geom_point(alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE, color = "red") +
+    labs(title = paste("Age vs", protein), x = "Age", y = protein) +
+    theme_minimal()
+  print(p)
+}
+
+# Boxplots: Sex vs. each protein
+for (protein in proteins) {
+  p <- ggplot(merged_data, aes(x = Sex, y = .data[[protein]])) +
+    geom_boxplot(fill = "lightblue") +
+    labs(title = paste("Sex vs", protein), x = "Sex", y = protein) +
+    theme_minimal()
+  print(p)
+}
+
+# Spearman correlation + Wilcoxon test (Sex differences)
+cor_results <- data.frame(Protein = character(), BMI_Correlation = numeric(), Age_Correlation = numeric(), 
+                          BMI_p_value = numeric(), Age_p_value = numeric(), Sex_p_value = numeric())
+
+for (protein in proteins) {
+  # Spearman Correlation (BMI & Age) with exact = FALSE to handle ties
+  bmi_cor_test <- cor.test(merged_data$BMI, merged_data[[protein]], method = "spearman", exact = FALSE)
+  age_cor_test <- cor.test(merged_data$Age, merged_data[[protein]], method = "spearman", exact = FALSE)
+  
+  # Wilcoxon test for Sex differences (Male vs. Female)
+  sex_test <- wilcox.test(merged_data[[protein]] ~ merged_data$Sex, exact = FALSE)
+
+  cor_results <- rbind(cor_results, data.frame(
+    Protein = protein, 
+    BMI_Correlation = bmi_cor_test$estimate, 
+    Age_Correlation = age_cor_test$estimate,
+    BMI_p_value = bmi_cor_test$p.value,
+    Age_p_value = age_cor_test$p.value,
+    Sex_p_value = sex_test$p.value  # Wilcoxon p-value for Male vs. Female
+  ))
+}
+
+# View correlation results in a new tab
+View(cor_results)
+
+# Save results as CSV
+write.csv(cor_results, file = "Spearman_Wilcoxon_Results.csv", row.names = FALSE)
+
+# Print completion message
+print("Scatter plots generated, correlation analysis and Sex significance test complete. Results saved as 'Spearman_Wilcoxon_Results.csv'.")
+
+
+```
+
+```{r}
+# Spearman correlation + Wilcoxon test (Sex differences)
+cor_results <- data.frame(Protein = character(), BMI_Correlation = numeric(), Age_Correlation = numeric(), 
+                          BMI_p_value = numeric(), Age_p_value = numeric(), Sex_p_value = numeric())
+
+for (protein in proteins) {
+  # Spearman Correlation (BMI & Age)
+  bmi_cor_test <- cor.test(merged_data$BMI, merged_data[[protein]], method = "spearman", exact = FALSE)
+  age_cor_test <- cor.test(merged_data$Age, merged_data[[protein]], method = "spearman", exact = FALSE)
+  
+  # Wilcoxon test for Sex differences
+  sex_test <- wilcox.test(merged_data[[protein]] ~ merged_data$Sex, exact = FALSE)
+  
+  cor_results <- rbind(cor_results, data.frame(
+    Protein = protein, 
+    BMI_Correlation = bmi_cor_test$estimate, 
+    Age_Correlation = age_cor_test$estimate,
+    BMI_p_value = bmi_cor_test$p.value,
+    Age_p_value = age_cor_test$p.value,
+    Sex_p_value = sex_test$p.value  # Wilcoxon p-value
+  ))
+}
+
+# View correlation results in a new tab
+View(cor_results)
+
+# Save results as CSV
+write.csv(cor_results, file = "Spearman_Wilcoxon_Results.csv", row.names = FALSE)
+
+# Print completion message
+print("Scatter plots generated, correlation analysis and Sex significance test complete. Results saved as 'Spearman_Wilcoxon_Results.csv'.")
+
+
+```
+
+```{r}
+path <- "/Users/xiaojun/OneDrive - Imperial College London/Correlation Data Final.xls"
+corrr_data<- read_xls(path)
+View(corrr_data)
+```
+
+```{r}
+# Force all columns to numeric (NA introduced for non-convertible values)
+corrr_data_clean <- corrr_data %>%
+  mutate(across(everything(), ~ suppressWarnings(as.numeric(.)))) %>%
+  as.data.frame()  # Make sure it's not a tibble
+
+# Compute Spearman correlation, ignore NAs during pairwise comparisons
+cor_matrix <- cor(
+  corrr_data_clean,
+  method = "spearman",
+  use = "pairwise.complete.obs"
+) %>%
+  round(2)
+
+# View the correlation matrix
+View(cor_matrix)
+
+```
+
+
+
+
+```{r}
+library(corrplot)
+
+pdf("corrPlot.pdf", width = 12.5, height = 12.5)
+corrplot(cor_matrix, 
+         method = "color",          # Color-coded correlation values
+         col = colorRampPalette(c("blue", "white", "red"))(200),  # Blue to red gradient
+         tl.col = "black",          # Set axis labels to black
+         tl.srt = 45,               # Rotate axis labels for better readability
+         addCoef.col = "black",      # Show correlation values in black inside each cell
+         number.cex = 0.8,           # Adjust font size of correlation values
+         cl.pos = "r")   
+dev.off()
+
+
+```
+
+```{r}
+library(dplyr)
+
+# Rename patient_code to Sample in KOOS_Change for correct merging 
+#KOOS_Change <- KOOS_Change %>% dplyr::rename(Sample = patient_code)#
+
+# Ensure Sample is character in all datasets for proper merging
+KOOS_Change <- KOOS_Change %>% dplyr::mutate(Sample = as.character(Sample))
+MENTOR <- MENTOR %>% dplyr::mutate(Sample = as.character(Sample))
+Box_Cox_Mentor <- Box_Cox_Mentor %>% dplyr::mutate(Sample = as.character(Sample))
+
+# Select only needed KOOS variables
+koos_data <- KOOS_Change %>% dplyr::select(Sample, Koos_Pain_Base, Koos_Pain_Change)
+
+# Select BMI, Age, and Sex
+mentor_data <- MENTOR %>% dplyr::select(Sample, BMI, Age, Sex)
+
+# Ensure Panel is removed before merging
+protein_data <- Box_Cox_Mentor %>%
+  dplyr::select(-Panel, Sample, where(is.numeric))  # Explicitly remove Panel column
+
+# Merge datasets by Sample
+merged_data_with_sex <- koos_data %>%
+  dplyr::inner_join(mentor_data, by = "Sample") %>%
+  dplyr::inner_join(protein_data, by = "Sample")
+
+View(merged_data_with_sex)
+
+write.csv(merged_data_with_sex, "Correlation Data with Sex.csv", row.names = FALSE)
+
+```
+
+```{r}
+pdf()
+
+# Customize the plot
+corrplot(cor_matrix, 
+         method = "color",          # Color-coded correlation values
+         col = colorRampPalette(c("blue", "white", "red"))(200),  # Blue to red gradient
+         tl.col = "black",          # Set axis labels to black
+         tl.srt = 45,               # Rotate axis labels for better readability
+         addCoef.col = "black",      # Show correlation values in black inside each cell
+         number.cex = 0.8,           # Adjust font size of correlation values
+         cl.pos = "r")               # Move color legend to the right
+
+```
+
+
+```{r}
+# Explicitly remove Panel and Sample columns
+Box_Cox_Mentor_Clean <- Box_Cox_Mentor[, !(names(Box_Cox_Mentor) %in% c("Panel", "Sample"))]
+
+# Display cleaned dataset to verify
+View(Box_Cox_Mentor_Clean)
+
+```
+
+```{r}
+library(dplyr)
+
+# Explicitly ensure numeric data
+protein_numeric <- Box_Cox_Mentor_Clean %>% mutate_all(as.numeric)
+
+# Compute Spearman correlation (rounded to 2 decimals)
+protein_cor_matrix <- cor(protein_numeric, method = "spearman", use = "pairwise.complete.obs") %>% 
+  round(2)
+
+# Display the protein correlation matrix clearly
+View(protein_cor_matrix)
+
+write.csv(Box_Cox_Mentor_Clean, file = "Box_Cox_Mentor_Clean.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+library(dplyr)
+library(broom)
+
+# Initialize results explicitly
+final_results <- data.frame()
+
+# Prepare datasets explicitly:
+proteins <- Box_Cox_Mentor_Clean %>% mutate_all(as.numeric)
+koos <- KOOS_Change %>% dplyr::select(Sample, Koos_Pain_Base, Koos_Pain_Change)
+mentor_covariates <- MENTOR %>% dplyr::select(Sample, Age, BMI)
+
+# Merge data explicitly
+full_data <- koos %>%
+  inner_join(mentor_covariates, by = "Sample") %>%
+  inner_join(Box_Cox_Mentor %>% dplyr::select(Sample) %>% bind_cols(proteins), by = "Sample")
+
+# Storage for results
+final_results <- data.frame()
+
+# Proteins list explicitly
+proteins_list <- colnames(proteins)
+
+# Loop over each protein explicitly
+for (protein in proteins_list) {
+  
+  safe_protein <- paste0("`", protein, "`")  # handle special characters in protein names
+  
+  # KOOS Baseline
+  formula_base <- as.formula(paste("Koos_Pain_Base ~", safe_protein, "+ Age + BMI"))
+  model_base <- lm(formula_base, data = full_data)
+  tidy_base <- tidy(model_base, conf.int = TRUE) %>%
+    filter(term == safe_protein) %>%
+    mutate(
+      Outcome = "KOOS Baseline",
+      Protein = protein,
+      R2 = summary(model_base)$r.squared,
+      adj_R2 = summary(model_base)$adj.r.squared
+    )
+
+  # KOOS Change
+  formula_change <- as.formula(paste("Koos_Pain_Change ~", safe_protein, "+ Age + BMI"))
+  model_change <- lm(formula_change, data = full_data)
+  tidy_change <- tidy(model_change, conf.int = TRUE) %>%
+    filter(term == safe_protein) %>%
+    mutate(
+      Outcome = "KOOS Change",
+      Protein = protein,
+      R2 = summary(model_change)$r.squared,
+      adj_R2 = summary(model_change)$adj.r.squared
+    )
+
+  # Combine explicitly
+  final_results <- bind_rows(final_results, tidy_base, tidy_change)
+}
+
+# Adjust p-values explicitly
+final_results <- final_results %>%
+  mutate(BH_p_value = p.adjust(p.value, method = "BH"))
+
+# Clearly arrange results
+final_results <- final_results %>%
+  dplyr::select(Outcome, Protein, estimate, conf.low, conf.high, R2, p.value, BH_p_value)
+
+# View results in a new tab
+View(final_results)
+
+# Save results explicitly
+write.csv(final_results, "Linear_Regression_Full_Results.csv", row.names = FALSE)
+
+```
+
+```{r}
+library(dplyr)
+library(broom)
+
+# Initialize results explicitly
+unadjusted_results <- data.frame()
+adjusted_results <- data.frame()
+
+# Prepare datasets explicitly:
+proteins <- Box_Cox_Mentor_Clean %>% mutate_all(as.numeric)
+koos <- KOOS_Change %>% dplyr::select(Sample, Koos_Pain_Change)
+mentor_covariates <- MENTOR %>% dplyr::select(Sample, Age, BMI)
+
+# Merge data explicitly
+full_data <- koos %>%
+  inner_join(mentor_covariates, by = "Sample") %>%
+  inner_join(Box_Cox_Mentor %>% dplyr::select(Sample) %>% bind_cols(proteins), by = "Sample")
+
+# Proteins list explicitly
+proteins_list <- colnames(proteins)
+
+# Loop over each protein explicitly
+for (protein in proteins_list) {
+  
+  safe_protein <- paste0("`", protein, "`")  # handle special characters in protein names
+  
+  ### UNADJUSTED MODEL ###
+  formula_unadjusted <- as.formula(paste("Koos_Pain_Change ~", safe_protein))
+  model_unadjusted <- lm(formula_unadjusted, data = full_data)
+  tidy_unadjusted <- tidy(model_unadjusted, conf.int = TRUE) %>%
+    filter(term == safe_protein) %>%
+    mutate(
+      Model = "Unadjusted",
+      Protein = protein,
+      R2 = summary(model_unadjusted)$r.squared,
+      adj_R2 = summary(model_unadjusted)$adj.r.squared
+    )
+  
+  ### ADJUSTED MODEL ###
+  formula_adjusted <- as.formula(paste("Koos_Pain_Change ~", safe_protein, "+ Age + BMI"))
+  model_adjusted <- lm(formula_adjusted, data = full_data)
+  tidy_adjusted <- tidy(model_adjusted, conf.int = TRUE) %>%
+    filter(term == safe_protein) %>%
+    mutate(
+      Model = "Adjusted",
+      Protein = protein,
+      R2 = summary(model_adjusted)$r.squared,
+      adj_R2 = summary(model_adjusted)$adj.r.squared
+    )
+
+  # Combine explicitly into separate tables
+  unadjusted_results <- bind_rows(unadjusted_results, tidy_unadjusted)
+  adjusted_results <- bind_rows(adjusted_results, tidy_adjusted)
+}
+
+# Adjust p-values explicitly
+unadjusted_results <- unadjusted_results %>%
+  mutate(BH_p_value = p.adjust(p.value, method = "BH"))
+
+adjusted_results <- adjusted_results %>%
+  mutate(BH_p_value = p.adjust(p.value, method = "BH"))
+
+# Clearly arrange results
+unadjusted_results <- unadjusted_results %>%
+  dplyr::select(Model, Protein, estimate, conf.low, conf.high, R2, p.value, BH_p_value)
+
+adjusted_results <- adjusted_results %>%
+  dplyr::select(Model, Protein, estimate, conf.low, conf.high, R2, p.value, BH_p_value)
+
+# View results in a new tab
+View(unadjusted_results)
+View(adjusted_results)
+
+# Save results explicitly
+write.csv(unadjusted_results, "Linear_Regression_KOOS_Change_Unadjusted.csv", row.names = FALSE)
+write.csv(adjusted_results, "Linear_Regression_KOOS_Change_Adjusted.csv", row.names = FALSE)
+
+```
+
+```{r}
+library(dplyr)
+library(broom)
+
+# Initialize results explicitly
+unadjusted_results_base <- data.frame()
+adjusted_results_base <- data.frame()
+
+# Prepare datasets explicitly:
+proteins <- Box_Cox_Mentor_Clean %>% mutate_all(as.numeric)
+koos <- KOOS_Change %>% dplyr::select(Sample, Koos_Pain_Base)  # Now selecting KOOS Pain Baseline
+mentor_covariates <- MENTOR %>% dplyr::select(Sample, Age, BMI)
+
+# Merge data explicitly
+full_data <- koos %>%
+  inner_join(mentor_covariates, by = "Sample") %>%
+  inner_join(Box_Cox_Mentor %>% dplyr::select(Sample) %>% bind_cols(proteins), by = "Sample")
+
+# Proteins list explicitly
+proteins_list <- colnames(proteins)
+
+# Loop over each protein explicitly
+for (protein in proteins_list) {
+  
+  safe_protein <- paste0("`", protein, "`")  # Handle special characters in protein names
+  
+  ### UNADJUSTED MODEL ###
+  formula_unadjusted <- as.formula(paste("Koos_Pain_Base ~", safe_protein))
+  model_unadjusted <- lm(formula_unadjusted, data = full_data)
+  tidy_unadjusted <- tidy(model_unadjusted, conf.int = TRUE) %>%
+    filter(term == safe_protein) %>%
+    mutate(
+      Model = "Unadjusted",
+      Protein = protein,
+      R2 = summary(model_unadjusted)$r.squared,
+      adj_R2 = summary(model_unadjusted)$adj.r.squared
+    )
+  
+  ### ADJUSTED MODEL ###
+  formula_adjusted <- as.formula(paste("Koos_Pain_Base ~", safe_protein, "+ Age + BMI"))
+  model_adjusted <- lm(formula_adjusted, data = full_data)
+  tidy_adjusted <- tidy(model_adjusted, conf.int = TRUE) %>%
+    filter(term == safe_protein) %>%
+    mutate(
+      Model = "Adjusted",
+      Protein = protein,
+      R2 = summary(model_adjusted)$r.squared,
+      adj_R2 = summary(model_adjusted)$adj.r.squared
+    )
+
+  # Combine explicitly into separate tables
+  unadjusted_results_base <- bind_rows(unadjusted_results_base, tidy_unadjusted)
+  adjusted_results_base <- bind_rows(adjusted_results_base, tidy_adjusted)
+}
+
+# Adjust p-values explicitly
+unadjusted_results_base <- unadjusted_results_base %>%
+  mutate(BH_p_value = p.adjust(p.value, method = "BH"))
+
+adjusted_results_base <- adjusted_results_base %>%
+  mutate(BH_p_value = p.adjust(p.value, method = "BH"))
+
+# Clearly arrange results
+unadjusted_results_base <- unadjusted_results_base %>%
+  dplyr::select(Model, Protein, estimate, conf.low, conf.high, R2, p.value, BH_p_value)
+
+adjusted_results_base <- adjusted_results_base %>%
+  dplyr::select(Model, Protein, estimate, conf.low, conf.high, R2, p.value, BH_p_value)
+
+# View results in a new tab
+View(unadjusted_results_base)
+View(adjusted_results_base)
+
+# Save results explicitly
+write.csv(unadjusted_results_base, "Linear_Regression_KOOS_Base_Unadjusted.csv", row.names = FALSE)
+write.csv(adjusted_results_base, "Linear_Regression_KOOS_Base_Adjusted.csv", row.names = FALSE)
+
+```
+
+```{r}
+colSums(is.na(Box_Cox_Mentor_Clean))
+
+
+```
+
