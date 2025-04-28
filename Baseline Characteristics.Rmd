@@ -1,0 +1,267 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# Load necessary libraries
+library(readxl)
+library(dplyr)
+
+
+path <- "/Users/xiaojun/OneDrive - Imperial College London/Desktop/MenTOR_Export_2024-11-14_anonymised set.xlsx"
+MENTOR<- read_excel(path,sheet = "Baseline")
+View(MENTOR)
+```
+
+```{r}
+# -------------------------------
+# Step 1: Gender Distribution
+# -------------------------------
+gender_counts <- MENTOR %>%
+  count(Gender, name = "count") %>%
+  mutate(
+    gender_label = case_when(
+      Gender == 1 ~ "Male",
+      Gender == 2 ~ "Female",
+      TRUE ~ "Unknown"
+    ),
+    percentage = round((count / sum(count)) * 100, 2)
+  )
+
+# View the result
+print(gender_counts)
+```
+
+```{r}
+# -------------------------------
+# Step 2: Age
+# -------------------------------
+library(dplyr)
+
+# Ensure DoB is in character format
+MENTOR <- MENTOR %>%
+  mutate(DoB = as.character(DoB))
+
+# Extract year from DoB and calculate Age
+MENTOR <- MENTOR %>%
+  mutate(
+    Year = as.numeric(substr(DoB, 1, 4)),  # Extract the year
+    Age = ifelse(!is.na(Year), 2025 - Year, NA)  # Calculate Age, keep NA if Year is missing
+  )
+
+
+# Ensure Age is numeric and saved properly
+MENTOR <- MENTOR %>% mutate(Age = as.numeric(Age))
+
+# View the updated MENTOR dataset
+print(MENTOR$Age)
+
+# Calculate median and standard deviation of Age
+median_age <- median(MENTOR$Age, na.rm = TRUE)
+sd_age <- sd(MENTOR$Age, na.rm = TRUE)
+
+# Print results
+print(paste("Median Age:", median_age))
+print(paste("Standard Deviation of Age:", sd_age))
+
+
+```
+
+
+```{r}
+# -------------------------------
+# Step 3: Assessing Normality of Age (Histogram, QQ Plot, Shapiro-Wilk Test)
+# -------------------------------
+
+library(ggplot2)
+# Histogram
+ggplot(MENTOR, aes(x = Age)) +
+  geom_histogram(binwidth = 1, fill = "blue", alpha = 0.7) +
+  labs(title = "Histogram of Age", x = "Age", y = "Frequency")
+
+# QQ Plot
+ggplot(MENTOR, aes(sample = Age)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ Plot of Age")
+
+# Shapiro-Wilk Test
+shapiro.test(MENTOR$Age)
+```
+```{r}
+MENTOR <- MENTOR %>%
+  mutate(Age_log = log(Age))
+
+# Check new distribution
+ggplot(MENTOR, aes(sample = Age_log)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ Plot of Log-Transformed Age")
+
+MENTOR <- MENTOR %>%
+  mutate(Age_sqrt = sqrt(Age))
+
+library(car)
+lambda <- powerTransform(MENTOR$Age)$lambda
+MENTOR <- MENTOR %>%
+  mutate(Age_boxcox = ((Age^lambda) - 1) / lambda)
+
+shapiro.test(MENTOR$Age_log)  # Check if log-transformed Age is normal
+shapiro.test(MENTOR$Age_sqrt) # Check sqrt transformation
+shapiro.test(MENTOR$Age_boxcox) # Check Box-Cox transformation
+
+
+```
+
+
+```{r}
+# -------------------------------
+# Step 3: BMI Categories
+# -------------------------------
+MENTOR <- MENTOR %>%
+  mutate(
+    BMI = Weight / (Height^2)  # Use Height in meters directly
+  ) %>%
+  mutate(
+    BMI_Category = ifelse(BMI < 30, "<30", "≥30")  # Categorize BMI
+  )
+
+
+# View the dataset with BMI and BMI_Category
+print(MENTOR %>% dplyr::select(Height, Weight, BMI, BMI_Category))
+
+# Summarize BMI categories
+bmi_summary <- MENTOR %>%
+  count(BMI_Category) %>%
+  mutate(
+    Percentage = round((n / sum(n)) * 100, 2)  # Calculate percentage
+  )
+
+# View the summary
+print(bmi_summary)
+
+```
+
+```{r}
+# Histogram of BMI
+ggplot(MENTOR, aes(x = BMI)) +
+  geom_histogram(binwidth = 1, fill = "blue", alpha = 0.7) +
+  labs(title = "Histogram of BMI", x = "BMI", y = "Frequency")
+
+# QQ Plot
+ggplot(MENTOR, aes(sample = BMI)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ Plot of BMI")
+
+shapiro.test(MENTOR$BMI)
+
+```
+
+
+
+
+```{r}
+# -------------------------------
+# Step 4: Pain Summary
+# -------------------------------
+# Summarise mean and standard deviation of Knee Pain
+nrs_pain_summary <- MENTOR %>%
+  summarise(
+    mean_knee_pain = round(mean(KneePainWeek, na.rm = TRUE), 2),
+    sd_knee_pain = round(sd(KneePainWeek, na.rm = TRUE), 2)
+  )
+
+# View the summary
+nrs_pain_summary
+
+# Add NRS Knee Pain summary to the baseline characteristics table
+baseline_table <- tibble(
+  Variable = c("NRS Knee Pain (Week)"),
+  Main_Study = c(paste0(
+    nrs_pain_summary$mean_knee_pain, " ± ", nrs_pain_summary$sd_knee_pain
+  ))
+)
+
+```
+
+```{r}
+MENTOR <- MENTOR %>%
+  mutate(BMI_log = log(BMI))
+
+# Check the distribution again
+ggplot(MENTOR, aes(sample = BMI_log)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ Plot of Log-Transformed BMI")
+
+MENTOR <- MENTOR %>%
+  mutate(BMI_sqrt = sqrt(BMI))
+
+# Check the distribution again
+ggplot(MENTOR, aes(sample = BMI_sqrt)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ Plot of Square Root-Transformed BMI")
+
+library(car)
+lambda <- powerTransform(MENTOR$BMI)$lambda
+MENTOR <- MENTOR %>%
+  mutate(BMI_boxcox = ((BMI^lambda) - 1) / lambda)
+
+# Check the distribution again
+ggplot(MENTOR, aes(sample = BMI_boxcox)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "QQ Plot of Box-Cox-Transformed BMI")
+
+shapiro.test(MENTOR$BMI_log)   # For log transformation
+shapiro.test(MENTOR$BMI_sqrt)  # For sqrt transformation
+shapiro.test(MENTOR$BMI_boxcox) # For Box-Cox transformation
+
+```
+
+```{r}
+# Merge Age, BMI, and Sex into Post_QC_Table
+Post_QC_Table_Demographics <- Post_QC_Table %>%
+  dplyr::left_join(MENTOR %>% dplyr::select(Sample, Age, BMI, Sex), by = "Sample") %>%
+  dplyr::distinct(Sample, Age, BMI, Sex)  # Ensure uniqueness per Sample
+
+# Save as CSV
+write.csv(Post_QC_Table_Demographics, file = "Post_QC_Table_Demographics.csv", row.names = FALSE)
+
+# Print confirmation message
+print("File saved: Post_QC_Table_Demographics.csv")
+
+```
+
+
+```{r}
+library(dplyr)
+
+# Ensure patient_code and Sample are character for proper merging
+#KOOS_Change <- KOOS_Change %>% mutate(patient_code = as.character(patient_code))#
+MENTOR <- MENTOR %>% mutate(Sample = as.character(Sample))
+
+# Select relevant columns from MENTOR
+mentor_info <- MENTOR %>% select(Sample, Sex, Age, BMI)
+
+# Merge KOOS_Change with MENTOR using patient_code = Sample
+KOOS_Change_Updated <- KOOS_Change %>%
+  left_join(mentor_info, by = c("patient_code" = "Sample"))
+
+# View the updated dataset
+View(KOOS_Change_Updated)
+
+# Save as CSV
+write.csv(KOOS_Change_Updated, "KOOS_Change_With_Demographics.csv", row.names = FALSE)
+
+
+
+```
+
+```{r}
+print(SF_single$Age)
+```
+
