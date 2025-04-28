@@ -1,0 +1,3296 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(dplyr)
+library(readxl)
+
+# File paths for the Excel files
+file_path_1 <- "~/OneDrive - Imperial College London/Desktop/Control SF_singleplex MSD_KICK_2.3.xlsx"
+file_path_2 <- "~/OneDrive - Imperial College London/Desktop/Control SF_from 36-Plex results 09_05_23.xlsx"
+file_path_3 <- "~/OneDrive - Imperial College London/Desktop/MenTOR 36-plex results 16062023_vs sent 30 June.xlsx"
+file_path_4 <- "~/OneDrive - Imperial College London/Desktop/Knee injured data.xlsx"
+
+# Load datasets with "NaN" recognized as NA
+SF_single <- read_excel(file_path_1, sheet = 3, na = "NaN")
+SF_36 <- read_excel(file_path_2, sheet = 1, na = "NaN")
+SF_Mentor <- read_excel(file_path_3, sheet = 3, na = "NaN")
+SF_single_HC2 <-read_excel(file_path_1, sheet = 4, na = "NaN")
+Knee_Injury <-read_excel(file_path_4, sheet= 1, na = "NaN")
+
+# Preview the cleaned datasets
+View(SF_single)
+View(SF_36)
+View(SF_Mentor)
+View (SF_single_HC2)
+View (Knee_Injury)
+
+```
+
+
+```{r}
+
+# Convert IL-6 values to numeric (handling non-numeric values like "<3.05")
+IL6_HC_Data <- SF_single %>%
+  filter(Subgroup == "hc") %>%              # Select rows where Subgroup is "hc"
+  dplyr::select(`IL-6`) %>%                        # Select only the IL-6 column
+  mutate(Value = as.numeric(gsub("<", "", `IL-6`))) %>% # Remove "<" and convert to numeric
+  filter(!is.na(Value))                     # Remove missing values
+
+# Plot Histogram for IL-6 in subgroup "hc"
+ggplot(IL6_HC_Data, aes(x = Value)) +
+  geom_histogram(bins = 20, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Histogram of IL-6 Concentrations in Subgroup HC",
+    x = "IL-6 Concentration",
+    y = "Frequency"
+  )
+
+# Perform Shapiro-Wilk Test for Normality
+shapiro_test <- shapiro.test(IL6_HC_Data$Value)
+print(shapiro_test)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Extract IL-6 values from each dataset and ensure numeric type
+IL6_Data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == "IL-6") %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(`IL-6` = matches("Cal.*Conc.*Mean")) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "OMB"),  
+
+  SF_single %>%
+    filter(Subgroup == "hc") %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "HC"),  
+
+  SF_single_HC2 %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "HC2"),
+
+  SF_single %>%
+    filter(Subgroup == "ia") %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "IA"),
+
+  SF_single %>%
+    filter(Subgroup == "late") %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "Late OA"),
+
+  SF_single %>%
+    filter(Subgroup == "mid") %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "Mid OA"),
+
+  SF_single %>%
+    filter(Subgroup == "oa") %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "OA"),
+
+  # Create "All OA" by merging data from Late OA, Mid OA, and OA
+  SF_single %>%
+    filter(Subgroup %in% c("late", "mid", "oa")) %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "All OA"),
+
+  # Add Knee Injury group from Knee_Injury dataset
+  Knee_Injury %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "Knee Injury")
+)
+
+# Ensure proper ordering of groups (Knee Injury placed before All OA)
+IL6_Data$Group <- factor(IL6_Data$Group, levels = c("Mentor", "OMB", "HC", "HC2", "IA", "Knee Injury", "Late OA", "Mid OA", "OA", "All OA"))
+
+# Plot IL-6 with x-axis ticks, bold axis titles, and centered bold title
+ggplot(IL6_Data, aes(x = Group, y = `IL-6`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +  
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.5) +  
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)  
+  ) +
+  labs(
+    title = "Comparison of IL-6 Concentration Across Groups",
+    x = "Group",
+    y = "IL-6 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  
+    axis.line = element_line(colour = "black"),  
+    axis.title = element_text(face = "bold"),  
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    axis.ticks = element_line(color = "black", size = 0.8),  
+    axis.ticks.length = unit(3, "pt"),  
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)  
+  )
+
+# Save plot
+ggsave(filename = "IL6_Comparison.png", plot = last_plot(), path = "/Users/xiaojun/Desktop/", width = 8, height = 6, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Extract IL-8 values from each dataset and ensure numeric type
+IL8_Data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == "IL-8") %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(`IL-8` = matches("Cal.*Conc.*Mean")) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "OMB"),  
+
+  SF_single %>%
+    filter(Subgroup == "hc") %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "HC"),  
+
+  SF_single_HC2 %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "HC2"),
+
+  SF_single %>%
+    filter(Subgroup == "ia") %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "IA"),
+
+  SF_single %>%
+    filter(Subgroup == "late") %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "Late OA"),
+
+  SF_single %>%
+    filter(Subgroup == "mid") %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "Mid OA"),
+
+  SF_single %>%
+    filter(Subgroup == "oa") %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "OA"),
+
+  # Create "All OA" by merging data from Late OA, Mid OA, and OA
+  SF_single %>%
+    filter(Subgroup %in% c("late", "mid", "oa")) %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "All OA"),
+
+  # Add Knee Injury group from Knee_Injury dataset
+  Knee_Injury %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "Knee Injury")
+)
+
+# Ensure proper ordering of groups (Knee Injury placed before All OA)
+IL8_Data$Group <- factor(IL8_Data$Group, levels = c("Mentor", "OMB", "HC", "HC2", "IA", "Knee Injury", "Late OA", "Mid OA", "OA", "All OA"))
+
+# Plot IL-8 with x-axis ticks, bold axis titles, and centered bold title
+ggplot(IL8_Data, aes(x = Group, y = `IL-8`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +  
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.5) +  
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)  
+  ) +
+  labs(
+    title = "Comparison of IL-8 Concentration Across Groups",
+    x = "Group",
+    y = "IL-8 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  
+    axis.line = element_line(colour = "black"),  
+    axis.title = element_text(face = "bold"),  
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    axis.ticks = element_line(color = "black", size = 0.8),  
+    axis.ticks.length = unit(3, "pt"),  
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)  
+  )
+
+# Save plot
+ggsave(filename = "IL8_Comparison.png", plot = last_plot(), path = "/Users/xiaojun/Desktop/", width = 8, height = 6, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Extract MCP-1 values from each dataset and ensure numeric type
+MCP1_Data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == "MCP-1") %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(`MCP-1` = matches("Cal.*Conc.*Mean")) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "OMB"),  
+
+  SF_single %>%
+    filter(Subgroup == "hc") %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "HC"),  
+
+  SF_single_HC2 %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "HC2"),
+
+  SF_single %>%
+    filter(Subgroup == "ia") %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "IA"),
+
+  SF_single %>%
+    filter(Subgroup == "late") %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "Late OA"),
+
+  SF_single %>%
+    filter(Subgroup == "mid") %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "Mid OA"),
+
+  SF_single %>%
+    filter(Subgroup == "oa") %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "OA"),
+
+  # Create "All OA" by merging data from Late OA, Mid OA, and OA
+  SF_single %>%
+    filter(Subgroup %in% c("late", "mid", "oa")) %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "All OA"),
+
+  # Add Knee Injury group from Knee_Injury dataset
+  Knee_Injury %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "Knee Injury")
+)
+
+# Ensure proper ordering of groups (Knee Injury placed before All OA)
+MCP1_Data$Group <- factor(MCP1_Data$Group, levels = c("Mentor", "OMB", "HC", "HC2", "IA", "Knee Injury", "Late OA", "Mid OA", "OA", "All OA"))
+
+# Plot MCP-1 with x-axis ticks, bold axis titles, and centered bold title
+ggplot(MCP1_Data, aes(x = Group, y = `MCP-1`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +  
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.5) +  
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)  
+  ) +labs(
+    title = "Comparison of MCP-1 Concentration Across Groups",
+    x = "Group",
+    y = "MCP-1 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  
+    axis.line = element_line(colour = "black"),  
+    axis.title = element_text(face = "bold"),  
+    axis.text.x = element_text(angle = 45, hjust = 1),  
+    axis.ticks = element_line(color = "black", size = 0.8),  
+    axis.ticks.length = unit(3, "pt"),  
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)  
+  )
+
+# Save plot
+ggsave(filename = "MCP1_Comparison.png", plot = last_plot(), path = "/Users/xiaojun/Desktop/", width = 8, height = 6, dpi = 300)
+```
+
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Check column names to prevent errors
+print(colnames(IL6_Data))
+
+# Convert Group to character type and create "All OA"
+IL6_Data <- IL6_Data %>%
+  mutate(Group = as.character(Group)) %>%  # Ensure Group is character
+  mutate(Group = ifelse(Group %in% c("Late OA", "Mid OA", "OA"), "All OA", Group))
+
+# Initialize an empty data frame to store p-values
+results <- data.frame(Analyte = character(), Comparison = character(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+# Run the test for IL-6 and store results
+p_value_mentor_vs_hc <- perform_mann_whitney(IL6_Data, "IL-6", "Mentor", "HC")
+p_value_mentor_vs_hc2 <- perform_mann_whitney(IL6_Data, "IL-6", "Mentor", "HC2")
+p_value_mentor_vs_all_oa <- perform_mann_whitney(IL6_Data, "IL-6", "Mentor", "All OA")
+p_value_mentor_vs_omb <- perform_mann_whitney(IL6_Data, "IL-6", "Mentor", "OMB")  
+p_value_mentor_vs_knee_injury <- perform_mann_whitney(IL6_Data, "IL-6", "Mentor", "Knee Injury")  # New comparison added
+
+# Store results
+results <- rbind(
+  results,
+  data.frame(Analyte = "IL-6", Comparison = "Mentor vs HC", P_Value = p_value_mentor_vs_hc),
+  data.frame(Analyte = "IL-6", Comparison = "Mentor vs HC2", P_Value = p_value_mentor_vs_hc2),
+  data.frame(Analyte = "IL-6", Comparison = "Mentor vs All OA", P_Value = p_value_mentor_vs_all_oa),
+  data.frame(Analyte = "IL-6", Comparison = "Mentor vs OMB", P_Value = p_value_mentor_vs_omb),
+  data.frame(Analyte = "IL-6", Comparison = "Mentor vs Knee Injury", P_Value = p_value_mentor_vs_knee_injury)  # Store new result
+)
+
+# Print results
+print(results)
+
+# Save results as a CSV file
+write.csv(results, file = "/Users/xiaojun/Desktop/Mann_Whitney_IL6_Results.csv", row.names = FALSE)
+
+
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Check column names to prevent errors
+print(colnames(IL8_Data))
+
+# Convert Group to character type and create "All OA"
+IL8_Data <- IL8_Data %>%
+  mutate(Group = as.character(Group)) %>%  # Ensure Group is character
+  mutate(Group = ifelse(Group %in% c("Late OA", "Mid OA", "OA"), "All OA", Group))
+
+# Initialize an empty data frame to store p-values
+results <- data.frame(Analyte = character(), Comparison = character(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+# Run the test for IL-8 and store results
+p_value_mentor_vs_hc <- perform_mann_whitney(IL8_Data, "IL-8", "Mentor", "HC")
+p_value_mentor_vs_hc2 <- perform_mann_whitney(IL8_Data, "IL-8", "Mentor", "HC2")
+p_value_mentor_vs_all_oa <- perform_mann_whitney(IL8_Data, "IL-8", "Mentor", "All OA")
+p_value_mentor_vs_omb <- perform_mann_whitney(IL8_Data, "IL-8", "Mentor", "OMB")  
+p_value_mentor_vs_knee_injury <- perform_mann_whitney(IL8_Data, "IL-8", "Mentor", "Knee Injury")  # New comparison added
+
+# Store results
+results <- rbind(
+  results,
+  data.frame(Analyte = "IL-8", Comparison = "Mentor vs HC", P_Value = p_value_mentor_vs_hc),
+  data.frame(Analyte = "IL-8", Comparison = "Mentor vs HC2", P_Value = p_value_mentor_vs_hc2),
+  data.frame(Analyte = "IL-8", Comparison = "Mentor vs All OA", P_Value = p_value_mentor_vs_all_oa),
+  data.frame(Analyte = "IL-8", Comparison = "Mentor vs OMB", P_Value = p_value_mentor_vs_omb),
+  data.frame(Analyte = "IL-8", Comparison = "Mentor vs Knee Injury", P_Value = p_value_mentor_vs_knee_injury)  # Store new result
+)
+
+# Print results
+print(results)
+
+# Save results as a CSV file
+write.csv(results, file = "/Users/xiaojun/Desktop/Mann_Whitney_IL8_Results.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Check column names to prevent errors
+print(colnames(MCP1_Data))
+
+# Convert Group to character type and create "All OA"
+MCP1_Data <- MCP1_Data %>%
+  mutate(Group = as.character(Group)) %>%  # Ensure Group is character
+  mutate(Group = ifelse(Group %in% c("Late OA", "Mid OA", "OA"), "All OA", Group))
+
+# Initialize an empty data frame to store p-values
+results <- data.frame(Analyte = character(), Comparison = character(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+# Run the test for MCP-1 and store results
+p_value_mentor_vs_hc <- perform_mann_whitney(MCP1_Data, "MCP-1", "Mentor", "HC")
+p_value_mentor_vs_hc2 <- perform_mann_whitney(MCP1_Data, "MCP-1", "Mentor", "HC2")
+p_value_mentor_vs_all_oa <- perform_mann_whitney(MCP1_Data, "MCP-1", "Mentor", "All OA")
+p_value_mentor_vs_omb <- perform_mann_whitney(MCP1_Data, "MCP-1", "Mentor", "OMB")  
+p_value_mentor_vs_knee_injury <- perform_mann_whitney(MCP1_Data, "MCP-1", "Mentor", "Knee Injury")  # New comparison added
+
+# Store results
+results <- rbind(
+  results,
+  data.frame(Analyte = "MCP-1", Comparison = "Mentor vs HC", P_Value = p_value_mentor_vs_hc),
+  data.frame(Analyte = "MCP-1", Comparison = "Mentor vs HC2", P_Value = p_value_mentor_vs_hc2),
+  data.frame(Analyte = "MCP-1", Comparison = "Mentor vs All OA", P_Value = p_value_mentor_vs_all_oa),
+  data.frame(Analyte = "MCP-1", Comparison = "Mentor vs OMB", P_Value = p_value_mentor_vs_omb),
+  data.frame(Analyte = "MCP-1", Comparison = "Mentor vs Knee Injury", P_Value = p_value_mentor_vs_knee_injury)  # New row added
+)
+
+# Print results
+print(results)
+
+# Save results as a CSV file
+write.csv(results, file = "/Users/xiaojun/Desktop/Mann_Whitney_MCP1_Results.csv", row.names = FALSE)
+
+
+
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Define LLOD values
+llod_values <- c("IL-6" = 3.05, "MCP-1" = 2.44, "IL-8" = 3.05)
+
+# Function to impute <LLOD values with 0.5 * LLOD
+impute_llod <- function(x, analyte) {
+  x <- as.character(x)  # Convert to character for pattern matching
+  x <- ifelse(grepl("^<", x), 0.5 * llod_values[analyte], as.numeric(x))  # Handle "<" cases safely
+  return(as.numeric(x))  # Ensure output remains numeric
+}
+
+# Create a new dataset for cleaned data (keep the original unchanged)
+Knee_Injury_Cleaned <- Knee_Injury
+
+# Ensure column names are R-friendly
+colnames(Knee_Injury_Cleaned) <- make.names(colnames(Knee_Injury_Cleaned))  # Converts "IL-6" to "IL.6"
+
+# Select the correct analyte columns
+analyte_cols <- c("IL.6", "MCP.1", "IL.8")  
+
+# Apply LLOD imputation to the new dataset
+for (col in analyte_cols) {
+  Knee_Injury_Cleaned[[col]] <- impute_llod(Knee_Injury_Cleaned[[col]], col)
+}
+
+# View the cleaned dataset
+View(Knee_Injury_Cleaned)  # Opens in RStudio's data viewer
+
+```
+
+```{r}
+colSums(is.na(Knee_Injury_Cleaned))
+Knee_Injury_Cleaned$IL.6[is.na(Knee_Injury_Cleaned$IL.6)] <- 0.5 * llod_values["IL-6"]
+Knee_Injury_Cleaned$MCP.1[is.na(Knee_Injury_Cleaned$MCP.1)] <- 0.5 * llod_values["MCP-1"]
+Knee_Injury_Cleaned$IL.8[is.na(Knee_Injury_Cleaned$IL.8)] <- 0.5 * llod_values["IL-8"]
+summary(Knee_Injury_Cleaned)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(scales)  # Needed for log-scale breaks
+
+# Extract IL-6 values from selected datasets and ensure numeric type
+IL6_Data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "Mentor"),
+
+  SF_single_HC2 %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "HC2"),
+
+  # Adding new group from Knee_Injury dataset
+  Knee_Injury %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "Knee Injury"),
+
+  SF_single %>%
+    filter(Subgroup %in% c("late", "mid", "oa")) %>%
+    dplyr::select(`IL-6`) %>%
+    mutate(`IL-6` = as.numeric(`IL-6`), Group = "All OA")
+)
+
+# Ensure proper ordering of groups (Knee Injury before All OA)
+IL6_Data$Group <- factor(IL6_Data$Group, levels = c("Mentor", "HC2", "Knee Injury", "All OA"))
+
+# Plot IL-6 with whole-number y-axis and log scale
+ggplot(IL6_Data, aes(x = Group, y = `IL-6`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +  # Boxplot without outliers
+  geom_jitter(width = 0.15, alpha = 0.6, color = "black", size = 1.5) +  # Smaller jitter dots
+  scale_y_log10(
+    breaks = scales::trans_breaks("log10", function(x) 10^x),  # Whole-number log scale
+    labels = scales::label_comma()  # Show as whole numbers
+  ) +
+  labs(
+    title = "Comparison of IL-6 Concentration Mean Across Groups",
+    x = "Group",
+    y = "IL-6 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  # Remove grid lines
+    axis.line = element_line(colour = "black"),  # Add solid black lines for x & y axis
+    axis.title = element_text(face = "bold"),  # Bold axis titles
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    axis.ticks.x = element_line(color = "black", size = 0.8),  # Add small lines (ticks) above x-axis labels
+    axis.ticks.length = unit(3, "pt"),  # Adjust tick size for visibility
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)  # Bold and center title
+  )
+
+# Save plot
+ggsave(filename = "IL6_Comparison.png", plot = last_plot(), path = "/Users/xiaojun/Desktop/", width = 8, height = 6, dpi = 300)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(scales)  # Needed for log-scale breaks
+
+# Extract IL-8 values from selected datasets and ensure numeric type
+IL8_Data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "Mentor"),
+
+  SF_single_HC2 %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "HC2"),
+
+  # Adding new group from Knee_Injury dataset
+  Knee_Injury %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "Knee Injury"),
+
+  SF_single %>%
+    filter(Subgroup %in% c("late", "mid", "oa")) %>%
+    dplyr::select(`IL-8`) %>%
+    mutate(`IL-8` = as.numeric(`IL-8`), Group = "All OA")
+)
+
+# Ensure proper ordering of groups (Knee Injury before All OA)
+IL8_Data$Group <- factor(IL8_Data$Group, levels = c("Mentor", "HC2", "Knee Injury", "All OA"))
+
+# Plot IL-8 with whole-number y-axis and log scale
+ggplot(IL8_Data, aes(x = Group, y = `IL-8`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +  # Boxplot without outliers
+  geom_jitter(width = 0.15, alpha = 0.6, color = "black", size = 1.5) +  # Smaller jitter dots
+  scale_y_log10(
+    breaks = scales::trans_breaks("log10", function(x) 10^x),  # Whole-number log scale
+    labels = scales::label_comma()  # Show as whole numbers
+  ) +
+  labs(
+    title = "Comparison of IL-8 Concentration Mean Across Groups",
+    x = "Group",
+    y = "IL-8 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  # Remove grid lines
+    axis.line = element_line(colour = "black"),  # Add solid black lines for x & y axis
+    axis.title = element_text(face = "bold"),  # Bold axis titles
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    axis.ticks.x = element_line(color = "black", size = 0.8),  # Add small lines (ticks) above x-axis labels
+    axis.ticks.length = unit(3, "pt"),  # Adjust tick size for visibility
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)  # Bold and center title
+  )
+
+# Save plot
+ggsave(filename = "IL8_Comparison.png", plot = last_plot(), path = "/Users/xiaojun/Desktop/", width = 8, height = 6, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(scales)  # Needed for log-scale breaks
+
+# Extract MCP-1 values from selected datasets and ensure numeric type
+MCP1_Data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "Mentor"),
+
+  SF_single_HC2 %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "HC2"),
+
+  # Adding new group from Knee_Injury dataset
+  Knee_Injury %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "Knee Injury"),
+
+  SF_single %>%
+    filter(Subgroup %in% c("late", "mid", "oa")) %>%
+    dplyr::select(`MCP-1`) %>%
+    mutate(`MCP-1` = as.numeric(`MCP-1`), Group = "All OA")
+)
+
+# Ensure proper ordering of groups (Knee Injury before All OA)
+MCP1_Data$Group <- factor(MCP1_Data$Group, levels = c("Mentor", "HC2", "Knee Injury", "All OA"))
+
+# Plot MCP-1 with whole-number y-axis and log scale
+ggplot(MCP1_Data, aes(x = Group, y = `MCP-1`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +  # Boxplot without outliers
+  geom_jitter(width = 0.15, alpha = 0.6, color = "black", size = 1.5) +  # Smaller jitter dots
+  scale_y_log10(
+    breaks = scales::trans_breaks("log10", function(x) 10^x),  # Whole-number log scale
+    labels = scales::label_comma()  # Show as whole numbers
+  ) +
+  labs(
+    title = "Comparison of MCP-1 Concentration Mean Across Groups",
+    x = "Group",
+    y = "MCP-1 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  # Remove grid lines
+    axis.line = element_line(colour = "black"),  # Add solid black lines for x & y axis
+    axis.title = element_text(face = "bold"),  # Bold axis titles
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    axis.ticks.x = element_line(color = "black", size = 0.8),  # Add small lines (ticks) above x-axis labels
+    axis.ticks.length = unit(3, "pt"),  # Adjust tick size for visibility
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)  # Bold and center title
+  )
+
+# Save plot
+ggsave(filename = "MCP1_Comparison.png", plot = last_plot(), path = "/Users/xiaojun/Desktop/", width = 8, height = 6, dpi = 300)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (change this for IL-6, IL-8, MCP-1, etc.)
+analyte <- "IL-6"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (IL-8)
+analyte <- "IL-8"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+```
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (Now IL-8)
+analyte <- "IL-8"
+
+# Extract data for Mentor (Post_QC_Wide) and OMB (SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "OMB")
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "OMB"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "OMB")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_OMB.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (MCP-1)
+analyte <- "MCP-1"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (MDC)
+analyte <- "MDC"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (MIP-1α)
+analyte <- "MIP-1α"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+```
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (MCP-4)
+analyte <- "MCP-4"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (MIP-1β)
+analyte <- "MIP-1β"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (IP-10)
+analyte <- "IP-10"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte (Eotaxin)
+analyte <- "Eotaxin"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte
+analyte <- "IL-15"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (Previously OMB in SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label here
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_AdvancedOA.png"), plot = p, width = 4, height = 4, dpi = 300)
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data: IL-12/IL-23p40 from Post_QC_Wide and IL-12 from SF_36_Filtered
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(`IL-12/IL-23p40`) %>%
+    rename(`IL-12` = `IL-12/IL-23p40`) %>%  # Rename to maintain consistency
+    mutate(`IL-12` = as.numeric(`IL-12`), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == "IL-12") %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(`IL-12` = matches("Cal.*Conc.*Mean")) %>%
+    mutate(`IL-12` = as.numeric(`IL-12`), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, "IL-12", "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data$`IL-12`, na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = `IL-12`, fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-12 Concentration",
+    x = "Group",
+    y = "IL-12 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "IL-12_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data for IL-1α from Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte <- "IL-1α"
+
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-1α Concentration",
+    x = "Group",
+    y = "IL-1α Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "IL-1α_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data for IL-5 from Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte <- "IL-5"
+
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-5 Concentration",
+    x = "Group",
+    y = "IL-5 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "IL-5_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data for TNF-β from Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte <- "TNF-β"
+
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "TNF-β Concentration",
+    x = "Group",
+    y = "TNF-β Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "TNF-Beta_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data for IL-16 from Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte <- "IL-16"
+
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-16 Concentration",
+    x = "Group",
+    y = "IL-16 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "IL-16_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data for IL-7 from Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte <- "IL-7"
+
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-7 Concentration",
+    x = "Group",
+    y = "IL-7 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "IL-7_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Extract data for GM-CSF from Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte <- "GM-CSF"
+
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")  # Change label from OMB
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "GM-CSF Concentration",
+    x = "Group",
+    y = "GM-CSF Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = "GM-CSF_Mentor_vs_AdvancedOA.png", plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte names
+mentor_analyte <- "IL-17A"
+advanced_oa_analyte <- "IL-17"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(mentor_analyte)) %>%
+    mutate(!!mentor_analyte := as.numeric(.data[[mentor_analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == advanced_oa_analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!mentor_analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!mentor_analyte := as.numeric(.data[[mentor_analyte]]), Group = "Advanced OA")
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, mentor_analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[mentor_analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[mentor_analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(mentor_analyte, "Concentration"),
+    x = "Group",
+    y = paste(mentor_analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(mentor_analyte, "_Mentor_vs_Advanced_OA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte
+analyte <- "IFN-γ"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_Advanced_OA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Function to perform Mann-Whitney U Test
+perform_mann_whitney <- function(data, analyte, group1, group2) {
+  if (!(analyte %in% colnames(data))) {
+    warning(paste("Skipping", analyte, "- column not found"))
+    return(NA)
+  }
+  
+  group1_values <- data %>% filter(Group == group1) %>% pull(!!sym(analyte))
+  group2_values <- data %>% filter(Group == group2) %>% pull(!!sym(analyte))
+  
+  if (length(group1_values) > 0 & length(group2_values) > 0) {
+    test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
+    return(test_result$p.value)
+  } else {
+    return(NA)  # Return NA if either group has no data
+  }
+}
+
+# Define analyte
+analyte <- "TNF-β"
+
+# Extract data for Mentor (Post_QC_Wide) and Advanced OA (SF_36_Filtered)
+analyte_data <- bind_rows(
+  Post_QC_Wide %>%
+    dplyr::select(all_of(analyte)) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Mentor"),
+
+  SF_36_Filtered %>%
+    filter(Assay == analyte) %>%
+    dplyr::select(matches("Cal.*Conc.*Mean")) %>%
+    rename(!!analyte := matches("Cal.*Conc.*Mean")) %>%
+    mutate(!!analyte := as.numeric(.data[[analyte]]), Group = "Advanced OA")
+)
+
+# Convert Group to factor with correct ordering
+analyte_data$Group <- factor(analyte_data$Group, levels = c("Mentor", "Advanced OA"))
+
+# Perform Mann-Whitney U Test
+p_value <- perform_mann_whitney(analyte_data, analyte, "Mentor", "Advanced OA")
+
+# Define significance annotation based on p-value
+if (!is.na(p_value)) {
+  sig_label <- case_when(
+    p_value < 0.001 ~ "***",  
+    p_value < 0.01  ~ "**",    
+    p_value < 0.05  ~ "*",     
+    TRUE           ~ "ns"     
+  )
+} else {
+  sig_label <- "NA"
+}
+
+# Calculate y-position for annotation
+max_y <- max(analyte_data[[analyte]], na.rm = TRUE) * 1.2
+
+# Create the square-shaped plot
+p <- ggplot(analyte_data, aes(x = Group, y = .data[[analyte]], fill = Group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.6, color = "black", size = 1) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = paste(analyte, "Concentration"),
+    x = "Group",
+    y = paste(analyte, "Concentration (Log Scale)")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(2, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 10)
+  ) +
+  # Add significance annotation
+  annotate("text", x = 1.5, y = max_y, label = sig_label, size = 5, fontface = "bold")
+
+# Show the plot
+print(p)
+
+# Save the plot as a smaller square
+ggsave(filename = paste0(analyte, "_Mentor_vs_Advanced_OA.png"), plot = p, width = 4, height = 4, dpi = 300)
+
+```
+
+```{r}
+# Subset data
+MCP1_Mentor_HC <- MCP1_Data %>%
+  filter(Group %in% c("Mentor", "HC", "HC2"))
+
+# Plot
+ggplot(MCP1_Mentor_HC, aes(x = Group, y = `MCP-1`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "MCP-1 Concentration: Mentor vs HC vs HC2",
+    x = "Group",
+    y = "MCP-1 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save plot
+ggsave(
+  filename = "MCP1_Mentor_HC_HC2.png",
+  plot = last_plot(),
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+# Subset data
+MCP1_Mentor_Knee_OA <- MCP1_Data %>%
+  filter(Group %in% c("Mentor", "Knee Injury", "All OA"))
+
+# Plot
+ggplot(MCP1_Mentor_Knee_OA, aes(x = Group, y = `MCP-1`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "MCP-1 Concentration: Mentor vs Knee Injury vs All OA",
+    x = "Group",
+    y = "MCP-1 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save plot
+ggsave(
+  filename = "MCP1_Mentor_Knee_AllOA.png",
+  plot = last_plot(),
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+
+```
+
+```{r}
+# Subset data
+IL6_Mentor_HC <- IL6_Data %>%
+  filter(Group %in% c("Mentor", "HC", "HC2"))
+
+# Plot
+ggplot(IL6_Mentor_HC, aes(x = Group, y = `IL-6`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-6 Concentration: Mentor vs HC vs HC2",
+    x = "Group",
+    y = "IL-6 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save
+ggsave(
+  filename = "IL6_Mentor_HC_HC2.png",
+  plot = last_plot(),
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+# Subset data
+IL6_Mentor_Knee_OA <- IL6_Data %>%
+  filter(Group %in% c("Mentor", "Knee Injury", "All OA"))
+
+# Plot
+ggplot(IL6_Mentor_Knee_OA, aes(x = Group, y = `IL-6`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-6 Concentration: Mentor vs Knee Injury vs All OA",
+    x = "Group",
+    y = "IL-6 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save
+ggsave(
+  filename = "IL6_Mentor_Knee_AllOA.png",
+  plot = last_plot(),
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+# Subset data
+IL8_Mentor_HC <- IL8_Data %>%
+  filter(Group %in% c("Mentor", "HC", "HC2"))
+
+# Plot
+ggplot(IL8_Mentor_HC, aes(x = Group, y = `IL-8`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-8 Concentration: Mentor vs HC vs HC2",
+    x = "Group",
+    y = "IL-8 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save plot
+ggsave(
+  filename = "IL8_Mentor_HC_HC2.png",
+  plot = last_plot(),
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+# Subset data
+IL8_Mentor_Knee_OA <- IL8_Data %>%
+  filter(Group %in% c("Mentor", "Knee Injury", "All OA"))
+
+# Plot
+ggplot(IL8_Mentor_Knee_OA, aes(x = Group, y = `IL-8`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+  labs(
+    title = "IL-8 Concentration: Mentor vs Knee Injury vs All OA",
+    x = "Group",
+    y = "IL-8 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save plot
+ggsave(
+  filename = "IL8_Mentor_Knee_AllOA.png",
+  plot = last_plot(),
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+MCP1_Data %>%
+  group_by(Group) %>%
+  summarise(Sample_Size = sum(!is.na(`MCP-1`))) %>%
+  arrange(factor(Group, levels = levels(MCP1_Data$Group)))
+
+```
+
+```{r}
+IL6_Data %>%
+  group_by(Group) %>%
+  summarise(Sample_Size = sum(!is.na(`IL-6`))) %>%
+  arrange(factor(Group, levels = levels(IL6_Data$Group)))
+
+```
+
+```{r}
+IL8_Data %>%
+  group_by(Group) %>%
+  summarise(Sample_Size = sum(!is.na(`IL-8`))) %>%
+  arrange(factor(Group, levels = levels(IL8_Data$Group)))
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Subset data
+MCP1_Mentor_HC <- MCP1_Data %>%
+  filter(Group %in% c("Mentor", "HC", "HC2"))
+
+# Plot
+p <- ggplot(MCP1_Mentor_HC, aes(x = Group, y = `MCP-1`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 10000)
+  ) +
+
+  # ---- Manual significance line for Mentor vs HC2 only ----
+  geom_segment(aes(x = 1, xend = 3, y = 8000, yend = 8000), size = 0.5) +
+  annotate("text", x = 2, y = 9000, label = "***", size = 5) +
+
+  # ---- Labels and theme ----
+  labs(
+    title = "MCP-1 Concentration: Mentor vs HC vs HC2",
+    x = "Group",
+    y = "MCP-1 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save
+ggsave(
+  filename = "MCP1_Mentor_HC_HC2.png",
+  plot = p,
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Subset data
+MCP1_Mentor_Knee_OA <- MCP1_Data %>%
+  filter(Group %in% c("Mentor", "Knee Injury", "All OA"))
+
+# Plot with upgraded y-axis and spacing
+p <- ggplot(MCP1_Mentor_Knee_OA, aes(x = Group, y = `MCP-1`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 20000)  # 🔼 More vertical space
+  ) +
+
+  # Significance lines and asterisks with better spacing
+  geom_segment(aes(x = 1, xend = 2, y = 10000, yend = 10000), size = 0.5) +
+  annotate("text", x = 1.5, y = 11000, label = "***", size = 5) +
+
+  geom_segment(aes(x = 1, xend = 3, y = 15000, yend = 15000), size = 0.5) +
+  annotate("text", x = 2, y = 17000, label = "***", size = 5) +
+
+  labs(
+    title = "MCP-1 Concentration: Mentor vs Knee Injury vs All OA",
+    x = "Group",
+    y = "MCP-1 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save
+ggsave(
+  filename = "MCP1_Mentor_Knee_AllOA.png",
+  plot = p,
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Subset data
+IL6_Mentor_HC <- IL6_Data %>%
+  filter(Group %in% c("Mentor", "HC", "HC2"))
+
+# Plot with both significance lines
+p <- ggplot(IL6_Mentor_HC, aes(x = Group, y = `IL-6`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 20000)
+  ) +
+
+  # Mentor vs HC (ns)
+  geom_segment(aes(x = 1, xend = 2, y = 10000, yend = 10000), size = 0.5) +
+  annotate("text", x = 1.5, y = 11000, label = "ns", size = 0) +
+
+  # Mentor vs HC2 (**)
+  geom_segment(aes(x = 1, xend = 3, y = 15000, yend = 15000), size = 0.5) +
+  annotate("text", x = 2, y = 16500, label = "**", size = 5) +
+
+  labs(
+    title = "IL-6 Concentration: Mentor vs HC vs HC2",
+    x = "Group",
+    y = "IL-6 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save
+ggsave(
+  filename = "IL6_Mentor_HC_HC2.png",
+  plot = p,
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+
+```
+
+```{r}
+IL6_Mentor_Knee_OA <- IL6_Data %>%
+  filter(Group %in% c("Mentor", "Knee Injury", "All OA"))
+
+p <- ggplot(IL6_Mentor_Knee_OA, aes(x = Group, y = `IL-6`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 20000)
+  ) +
+  geom_segment(aes(x = 1, xend = 2, y = 10000, yend = 10000), size = 0.5) +
+  annotate("text", x = 1.5, y = 11000, label = "***", size = 5) +
+  geom_segment(aes(x = 1, xend = 3, y = 15000, yend = 15000), size = 0.5) +
+  annotate("text", x = 2, y = 17000, label = "***", size = 5) +
+  labs(
+    title = "IL-6 Concentration: Mentor vs Knee Injury vs All OA",
+    x = "Group",
+    y = "IL-6 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+ggsave(
+  filename = "IL6_Mentor_Knee_AllOA.png",
+  plot = p,
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+IL8_Mentor_Knee_OA <- IL8_Data %>%
+  filter(Group %in% c("Mentor", "Knee Injury", "All OA"))
+
+p <- ggplot(IL8_Mentor_Knee_OA, aes(x = Group, y = `IL-8`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 20000)
+  ) +
+  geom_segment(aes(x = 1, xend = 2, y = 10000, yend = 10000), size = 0.5) +
+  annotate("text", x = 1.5, y = 11000, label = "***", size = 5) +
+  geom_segment(aes(x = 1, xend = 3, y = 15000, yend = 15000), size = 0.5) +
+  annotate("text", x = 2, y = 17000, label = "***", size = 5) +
+  labs(
+    title = "IL-8 Concentration: Mentor vs Knee Injury vs All OA",
+    x = "Group",
+    y = "IL-8 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+ggsave(
+  filename = "IL8_Mentor_Knee_AllOA.png",
+  plot = p,
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Subset data
+IL8_Mentor_HC <- IL8_Data %>%
+  filter(Group %in% c("Mentor", "HC", "HC2"))
+
+# Plot
+p <- ggplot(IL8_Mentor_HC, aes(x = Group, y = `IL-8`, fill = Group)) +
+  geom_boxplot(width = 0.5, alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.8, color = "black", size = 1.0) +
+  scale_y_log10(
+    breaks = c(1, 10, 100, 1000, 10000),
+    labels = scales::comma,
+    limits = c(NA, 20000)
+  ) +
+
+  # Only Mentor vs HC2 (ns)
+  geom_segment(aes(x = 1, xend = 3, y = 15000, yend = 15000), size = 0.5) +
+  annotate("text", x = 2, y = 16500, label = "ns", size = 0) +
+
+  labs(
+    title = "IL-8 Concentration: Mentor vs HC vs HC2",
+    x = "Group",
+    y = "IL-8 Concentration (Log Scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(colour = "black"),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+    axis.ticks = element_line(color = "black", size = 0.8),
+    axis.ticks.length = unit(3, "pt"),
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 14)
+  )
+
+# Save
+ggsave(
+  filename = "IL8_Mentor_HC_HC2.png",
+  plot = p,
+  path = "/Users/xiaojun/Desktop/",
+  width = 5,
+  height = 5.2,
+  dpi = 300
+)
+
+
+```
+
